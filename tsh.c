@@ -165,6 +165,15 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    char *argv[MAXARGS];
+    char buf[MAXLINE];
+    int bg;
+    pid_t pid;
+    
+    strcpy(buf,cmdline);
+    bg = parseline(buf,argv);
+    if (argv[0] == NULL)
+        return;
     return;
 }
 
@@ -231,6 +240,9 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
+    if (!strcmp(argv[0],"quit")){
+        exit(0);
+    }
     return 0;     /* not a builtin command */
 }
 
