@@ -12,6 +12,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include "csapp.c"
 
 /* Misc manifest constants */
 #define MAXLINE    1024   /* max line size */
@@ -80,7 +81,6 @@ int pid2jid(pid_t pid);
 void listjobs(struct job_t *jobs);
 
 void usage(void);
-void unix_error(char *msg);
 void app_error(char *msg);
 typedef void handler_t(int);
 handler_t *Signal(int signum, handler_t *handler);
@@ -488,14 +488,7 @@ void usage(void)
     exit(1);
 }
 
-/*
- * unix_error - unix-style error routine
- */
-void unix_error(char *msg)
-{
-    fprintf(stdout, "%s: %s\n", msg, strerror(errno));
-    exit(1);
-}
+
 
 /*
  * app_error - application-style error routine
