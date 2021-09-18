@@ -169,24 +169,35 @@ void eval(char *cmdline)
     char buf[MAXLINE];
     int bg;
     pid_t pid;
+    sigset_t mask_all, mask_one, prev_one;
+    
     
     strcpy(buf,cmdline);
     bg = parseline(buf,argv);
+    
+    sigfillset(&mask_all);
+    sigemptyset(&mask_one);
+    sigaddset(&mask_one,SIGCHLD);
+    
     if (argv[0] == NULL)
         return;  /*Ignore empty lines*/
     if (!builtin_cmd(argv)) {
+        sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if ((pid = Fork()) == 0) {      /*Child runs user job*/
+            sigprocmask(SIG_SETMASK, &prev_one, NULL);
             if (execve(argv[0],argv,environ) < 0){
                 printf("%s: Command not found. \n", argv[0]);
                 exit(0);
             }
         }
+        
+        sigprocmask(SIG_BLOCK, &mask_all, NULL);
+        addjob(jobs, pid, bg+1, cmdline);
+        sigprocmask(SIG_SETMASK, &prev_one, NULL);
         if (!bg){
-            int status;
-            if (waitpid(pid,&status, 0)< 0)
-                unix_error("waitingfg: waitpid error");
+            waitfg(pid);
         }else{
-            printf("%d %s", pid, cmdline);
+            printf("[%d] (%d) %s",pid2jid(pid), pid, cmdline);
         }
     }
     return;
@@ -255,8 +266,12 @@ int parseline(const char *cmdline, char **argv)
  */
 int builtin_cmd(char **argv) 
 {
-    if (!strcmp(argv[0],"quit")){
+    if (!strcmp(argv[0],"quit")  || !strcmp(argv[0],"q")){
         exit(0);
+    } 
+    if ( !strcmp ( argv[0] , "jobs" ) ) {
+        listjobs(jobs);
+        return 1;
     }
     return 0;     /* not a builtin command */
 }
@@ -274,7 +289,9 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
-    return;
+    while (fgpid(jobs)) {
+        usleep(1000);
+    }
 }
 
 /*****************
@@ -290,7 +307,16 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    return;
+    int olderrno = errno;
+    sigset_t mask_all, prev_all;
+    pid_t pid;
+    sigfillset(&mask_all);
+    while ((pid = waitpid(-1,NULL,WNOHANG)) > 0) {
+        sigprocmask(SIG_BLOCK, &mask_all, &prev_all);
+        deletejob(jobs,pid);
+        sigprocmask(SIG_SETMASK, &prev_all, NULL);
+    }
+    errno = olderrno;
 }
 
 /* 
